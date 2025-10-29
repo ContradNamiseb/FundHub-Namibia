@@ -1,51 +1,24 @@
 // app/api/pledges/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import type { Database } from '@/lib/supabase/types';
 
-// ---------- Types (match your DB) ----------
-interface PledgeInsert {
-  project_id: string;   // UUID
-  user_id: string;      // UUID
-  amount: number;       // NUMERIC
-}
+type Pledge = Database['public']['Tables']['pledges']['Row'];
+type PledgeInsert = Database['public']['Tables']['pledges']['Insert'];
+type Project = Database['public']['Tables']['projects']['Row'];
 
-interface Pledge extends PledgeInsert {
-  id: string;
-  created_at: string;
-}
-
-interface Project {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  goal: number;
-  raised: number;
-  backers: number;
-  days_left: number | null;
-  category_id: string | null;
-  creator_id: string;
-  status: 'active' | 'funded' | 'closed';
-  created_at: string;
-  updated_at: string;
-}
-
-// ---------- POST – create a pledge ----------
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 1. Auth
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // 2. Body
     const body = (await request.json()) as Partial<PledgeInsert>;
     const { project_id, amount } = body;
 
-    // 3. Validate
     if (!project_id || amount === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -53,20 +26,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Amount must be > 0' }, { status: 400 });
     }
 
-    // 4. Insert pledge
+    // Correct: 2 type args
     const { data: pledge, error: pledgeError } = await supabase
-      .from<Pledge>('pledges')
+      .from<Pledge, PledgeInsert>('pledges')
       .insert({
         project_id,
         user_id: user.id,
         amount,
-      } as PledgeInsert)
+      })
       .select()
       .single();
 
     if (pledgeError) throw pledgeError;
 
-    // 5. Refresh project (stats are updated by DB trigger)
     const { data: project, error: projectError } = await supabase
       .from<Project>('projects')
       .select('*')
@@ -87,7 +59,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ---------- GET – list current user's pledges ----------
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -98,7 +69,7 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data, error } = await supabase
-      .from<Pledge>('pledges')
+      .from<Pledge, any>('pledges')
       .select(`
         *,
         project:projects (
