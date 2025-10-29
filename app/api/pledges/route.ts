@@ -1,103 +1,126 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+// app/api/pledges/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-// POST /api/pledges - Create a new pledge
+// ---------- Types (match your DB) ----------
+interface PledgeInsert {
+  project_id: string;   // UUID
+  user_id: string;      // UUID
+  amount: number;       // NUMERIC
+}
+
+interface Pledge extends PledgeInsert {
+  id: string;
+  created_at: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  goal: number;
+  raised: number;
+  backers: number;
+  days_left: number | null;
+  category_id: string | null;
+  creator_id: string;
+  status: 'active' | 'funded' | 'closed';
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------- POST – create a pledge ----------
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
+
+    // 1. Auth
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // 2. Body
+    const body = (await request.json()) as Partial<PledgeInsert>;
+    const { project_id, amount } = body;
+
+    // 3. Validate
+    if (!project_id || amount === undefined) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    if (typeof amount !== 'number' || amount <= 0) {
+      return NextResponse.json({ error: 'Amount must be > 0' }, { status: 400 });
     }
 
-    const body = await request.json()
-    const { project_id, amount } = body
-
-    // Validate required fields
-    if (!project_id || !amount) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    if (amount <= 0) {
-      return NextResponse.json(
-        { error: 'Amount must be greater than 0' },
-        { status: 400 }
-      )
-    }
-
-    // Create the pledge
-    const { data, error } = await supabase
-      .from('pledges')
+    // 4. Insert pledge
+    const { data: pledge, error: pledgeError } = await supabase
+      .from<Pledge>('pledges')
       .insert({
         project_id,
         user_id: user.id,
         amount,
-      })
+      } as PledgeInsert)
       .select()
-      .single()
+      .single();
 
-    if (error) throw error
+    if (pledgeError) throw pledgeError;
 
-    // Get updated project stats
-    const { data: project } = await supabase
-      .from('projects')
+    // 5. Refresh project (stats are updated by DB trigger)
+    const { data: project, error: projectError } = await supabase
+      .from<Project>('projects')
       .select('*')
       .eq('id', project_id)
-      .single()
+      .single();
+
+    if (projectError) throw projectError;
 
     return NextResponse.json(
-      {
-        pledge: data,
-        project,
-        message: 'Pledge created successfully',
-      },
+      { pledge, project, message: 'Pledge created successfully' },
       { status: 201 }
-    )
+    );
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to create pledge' },
       { status: 500 }
-    )
+    );
   }
 }
 
-// GET /api/pledges - Get user's pledges
+// ---------- GET – list current user's pledges ----------
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
+
     const {
       data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data, error } = await supabase
-      .from('pledges')
-      .select(
-        `
+      .from<Pledge>('pledges')
+      .select(`
         *,
-        projects (*)
-      `
-      )
+        project:projects (
+          id,
+          title,
+          icon,
+          goal,
+          raised,
+          backers,
+          status
+        )
+      `)
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
-    if (error) throw error
+    if (error) throw error;
 
-    return NextResponse.json({ pledges: data })
+    return NextResponse.json({ pledges: data });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch pledges' },
       { status: 500 }
-    )
+    );
   }
 }
-
