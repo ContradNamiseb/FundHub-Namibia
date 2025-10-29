@@ -42,10 +42,10 @@ export default function ProjectCard({ project, onFund }: ProjectCardProps) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="font-bold text-green-600 dark:text-orange-500">
-              ${project.raised.toLocaleString()}
+              {`N$${project.raised.toLocaleString()}`}
             </span>
             <span className="text-gray-600 dark:text-slate-400">
-              of ${project.goal.toLocaleString()}
+              {`of N$${project.goal.toLocaleString()}`}
             </span>
           </div>
           <div className="flex justify-between text-sm mt-1 text-gray-600 dark:text-slate-400">

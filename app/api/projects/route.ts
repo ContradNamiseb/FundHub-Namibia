@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-// GET /api/projects - Get all active projects
+// GET /api/projects - Get all active projects (with optional filters)
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const search = searchParams.get('search')
 
-    let query = supabase
+    let query: any = supabase
       .from('projects')
       .select('*')
       .eq('status', 'active')
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/projects - Create a new project
+// POST /api/projects - Create a new project (authenticated)
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -45,21 +45,26 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     const { title, description, icon, goal, days_left, category } = body
 
-    // Validate required fields
-    if (!title || !description || !goal || !days_left) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+    // Basic validation
+    if (!title || !description || !goal || days_left == null) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    const goalNum = parseFloat(goal)
+    const daysNum = parseInt(String(days_left), 10)
+
+    if (isNaN(goalNum) || goalNum <= 0) {
+      return NextResponse.json({ error: 'Invalid goal amount' }, { status: 400 })
+    }
+
+    if (isNaN(daysNum) || daysNum < 0) {
+      return NextResponse.json({ error: 'Invalid days_left' }, { status: 400 })
     }
 
     const { data, error } = await supabase
@@ -67,10 +72,10 @@ export async function POST(request: NextRequest) {
       .insert({
         title,
         description,
-        icon: icon || '🚀',
-        goal,
-        days_left,
-        category,
+        icon: icon ?? '🚀',
+        goal: goalNum,
+        days_left: daysNum,
+        category: category ?? null,
         creator_id: user.id,
         status: 'active',
       })
@@ -81,10 +86,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ project: data }, { status: 201 })
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to create project' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: error.message || 'Failed to create project' }, { status: 500 })
   }
 }
 

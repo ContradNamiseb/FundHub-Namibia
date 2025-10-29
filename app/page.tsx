@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import ProjectCard from '@/components/ProjectCard'
@@ -25,10 +26,34 @@ export default function HomePage() {
   const [fundingAmount, setFundingAmount] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
 
   useEffect(() => {
     loadProjects()
+    // Check auth status
+    let mounted = true
+    supabase.auth.getUser().then((res: any) => {
+      if (!mounted) return
+      setUser(res?.data?.user ?? null)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => {
+      mounted = false
+      // cleanup subscription
+      try {
+        listener?.subscription?.unsubscribe()
+      } catch (e) {
+        // ignore
+      }
+    }
   }, [])
+
+  
 
   async function loadProjects() {
     // Try to load from Supabase first
@@ -142,26 +167,60 @@ export default function HomePage() {
     }
 
     setLoading(true)
-
-    // Simulate funding process (in real app, this would call Supabase)
-    setTimeout(() => {
-      if (currentProject) {
-        // Update project data
-        const updatedProjects = projects.map((p) =>
-          p.id === currentProject.id
-            ? { ...p, raised: p.raised + amount, backers: p.backers + 1 }
-            : p
-        )
-        setProjects(updatedProjects)
-
-        showSuccessMessage(
-          `Successfully backed "${currentProject.title}" with $${amount}!`
-        )
+    try {
+      if (!currentProject) {
+        throw new Error('No project selected')
       }
 
+      const res = await fetch('/api/pledges', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: currentProject.id, amount }),
+      })
+
+      // Parse JSON safely — some server errors return HTML (e.g. Next error page)
+      let json: any = null
+      const ct = res.headers.get('content-type') || ''
+      if (ct.includes('application/json')) {
+        json = await res.json()
+      } else {
+        const text = await res.text()
+        // If not JSON, throw with the raw text so user sees useful error
+        if (!res.ok) {
+          if (res.status === 401) {
+            alert('You must be signed in to back a project. Redirecting to login...')
+            window.location.href = '/login'
+            return
+          }
+          throw new Error(text || 'Server returned an error')
+        }
+        try {
+          json = JSON.parse(text)
+        } catch (e) {
+          json = { message: text }
+        }
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.error || json?.message || 'Failed to process pledge')
+      }
+
+      // Update project in the list if returned
+      const returnedProject = json?.project
+      if (returnedProject) {
+        const updatedProjects = projects.map((p) =>
+          p.id === returnedProject.id ? returnedProject : p
+        )
+        setProjects(updatedProjects)
+      }
+
+      showSuccessMessage(`Successfully backed "${currentProject.title}" with N$${amount}!`)
+    } catch (error: any) {
+      alert(error.message || 'Failed to back project')
+    } finally {
       setLoading(false)
       closeFundingModal()
-    }, 2000)
+    }
   }
 
   function showSuccessMessage(message: string) {
@@ -188,6 +247,7 @@ export default function HomePage() {
               Discover groundbreaking projects and help bring amazing ideas to
               life through community funding.
             </p>
+            {/* auth status intentionally removed from homepage; header handles login/logout UI */}
             <button
               onClick={scrollToProjects}
               className="inline-block bg-green-500 dark:bg-orange-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-green-600 dark:hover:bg-orange-600 transition-all hover:-translate-y-1 shadow-lg hover:shadow-xl"
@@ -202,9 +262,9 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
               <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-md border dark:border-slate-700">
-                <span className="block text-4xl font-extrabold text-indigo-600 dark:text-orange-500">
-                  $2.4M
-                </span>
+                    <span className="block text-4xl font-extrabold text-indigo-600 dark:text-orange-500">
+                      N$2.4M
+                    </span>
                 <div className="text-gray-600 dark:text-slate-400 font-medium mt-2">
                   Total Funded
                 </div>
@@ -293,7 +353,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 <button
-                  onClick={() => setShowCreatorModal(true)}
+                  onClick={() => router.push('/start-project')}
                   className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 dark:from-orange-500 dark:to-red-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all hover:-translate-y-1"
                 >
                   START YOUR CAMPAIGN
@@ -399,7 +459,7 @@ export default function HomePage() {
             <input
               type="number"
               className="w-full px-4 py-3 border-2 border-gray-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-lg mb-6 focus:outline-none focus:border-indigo-600 dark:focus:border-orange-500"
-              placeholder="Enter amount ($)"
+              placeholder="Enter amount (N$)"
               min="1"
               value={fundingAmount}
               onChange={(e) => setFundingAmount(e.target.value)}

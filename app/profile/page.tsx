@@ -203,7 +203,7 @@ export default function ProfilePage() {
                   <p className="text-gray-600 dark:text-slate-400 mb-4">
                     You haven't created any projects yet.
                   </p>
-                  <button className="px-6 py-3 bg-green-600 dark:bg-orange-500 text-white rounded-lg font-semibold hover:bg-green-700 dark:hover:bg-orange-600 transition-colors">
+                  <button onClick={() => router.push('/start-project')} className="px-6 py-3 bg-green-600 dark:bg-orange-500 text-white rounded-lg font-semibold hover:bg-green-700 dark:hover:bg-orange-600 transition-colors">
                     Create a Project
                   </button>
                 </div>

@@ -52,7 +52,7 @@ export function validateAmount(amount: number | string): {
   }
 
   if (num > 1000000) {
-    return { valid: false, error: 'Amount cannot exceed $1,000,000' }
+    return { valid: false, error: 'Amount cannot exceed N$1,000,000' }
   }
 
   return { valid: true }

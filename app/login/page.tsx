@@ -1,6 +1,6 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -14,11 +14,18 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
+  const [user, setUser] = useState<any>(null)
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    if (user) {
+      setError('You are already signed in')
+      setLoading(false)
+      return
+    }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -35,6 +42,25 @@ export default function LoginPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getUser().then((res: any) => {
+      if (!mounted) return
+      setUser(res?.data?.user ?? null)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => {
+      mounted = false
+      try {
+        listener?.subscription?.unsubscribe()
+      } catch (e) {}
+    }
+  }, [])
 
   return (
     <>

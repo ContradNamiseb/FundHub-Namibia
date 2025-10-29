@@ -2,11 +2,29 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function Header() {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getUser().then((res: any) => {
+      if (!mounted) return
+      setUser(res?.data?.user ?? null)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      setUser(session?.user ?? null)
+    })
+    return () => {
+      mounted = false
+      try { listener?.subscription?.unsubscribe() } catch {}
+    }
+  }, [])
 
   const isActive = (path: string) => pathname === path
 
@@ -73,16 +91,6 @@ export default function Header() {
               Contact Us
             </Link>
             <Link 
-              href="/login"
-              className={`font-medium transition-colors ${
-                isActive('/login') 
-                  ? 'text-indigo-600 dark:text-orange-500' 
-                  : 'text-gray-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-orange-500'
-              }`}
-            >
-              Login
-            </Link>
-            <Link 
               href="/profile"
               className={`font-medium transition-colors ${
                 isActive('/profile') 
@@ -92,12 +100,38 @@ export default function Header() {
             >
               Profile
             </Link>
-            <Link 
-              href="/signup"
-              className="bg-indigo-600 dark:bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 dark:hover:bg-orange-600 transition-all hover:-translate-y-0.5"
-            >
-              Sign Up
-            </Link>
+            {user ? (
+              <>
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut()
+                    window.location.reload()
+                  }}
+                  className="bg-red-50 dark:bg-slate-800 text-red-600 dark:text-orange-400 px-6 py-2 rounded-lg font-semibold hover:bg-red-100 dark:hover:bg-orange-600 transition-all hover:-translate-y-0.5 ml-2"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link 
+                  href="/login"
+                  className={`font-medium transition-colors ${
+                    isActive('/login') 
+                      ? 'text-indigo-600 dark:text-orange-500' 
+                      : 'text-gray-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-orange-500'
+                  }`}
+                >
+                  Login
+                </Link>
+                <Link 
+                  href="/signup"
+                  className="bg-indigo-600 dark:bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-indigo-700 dark:hover:bg-orange-600 transition-all hover:-translate-y-0.5 ml-2"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
