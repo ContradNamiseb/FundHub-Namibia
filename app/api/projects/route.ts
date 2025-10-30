@@ -67,18 +67,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid days_left' }, { status: 400 })
     }
 
-    const { data, error } = await supabase
+    const projectPayload = {
+      title,
+      description,
+      icon: icon ?? '🚀',
+      goal: goalNum,
+      days_left: daysNum,
+      category: category ?? null,
+      creator_id: user.id,
+      status: 'active',
+    }
+
+    const { data, error } = await (supabase as any)
       .from('projects')
-      .insert({
-        title,
-        description,
-        icon: icon ?? '🚀',
-        goal: goalNum,
-        days_left: daysNum,
-        category: category ?? null,
-        creator_id: user.id,
-        status: 'active',
-      })
+      .insert(projectPayload as any)
       .select()
       .single()
 

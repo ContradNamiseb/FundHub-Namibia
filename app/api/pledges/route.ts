@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 
 // POST /api/pledges - Create a new pledge
 export async function POST(request: NextRequest) {
@@ -32,13 +33,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the pledge
-    const { data, error } = await supabase
+    const pledgePayload = {
+      project_id,
+      user_id: user.id,
+      amount,
+    } as unknown as Database['public']['Tables']['pledges']['Insert']
+
+    // use a typed-escape to avoid mismatched client generic inference in this build
+    const { data, error } = await (supabase as any)
       .from('pledges')
-      .insert({
-        project_id,
-        user_id: user.id,
-        amount,
-      })
+      .insert(pledgePayload as any)
       .select()
       .single()
 

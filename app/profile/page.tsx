@@ -36,7 +36,7 @@ export default function ProfilePage() {
         return
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -66,7 +66,7 @@ export default function ProfilePage() {
 
     setLoading(true)
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('profiles')
         .update({ full_name: fullName })
         .eq('id', profile.id)
