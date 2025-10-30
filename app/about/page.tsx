@@ -8,7 +8,7 @@ export default function AboutPage() {
       <main className="min-h-screen bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h1 className="text-5xl font-bold text-center mb-8 text-gray-900 dark:text-slate-100">
-            About CrowdFund Hub
+            About FundHub-Namibia
           </h1>
 
           <div className="prose prose-lg dark:prose-invert mx-auto">
@@ -17,7 +17,7 @@ export default function AboutPage() {
                 Our Mission
               </h2>
               <p className="text-gray-700 dark:text-slate-300 text-lg leading-relaxed">
-                CrowdFund Hub is dedicated to empowering innovation through
+                FundHub-Namibia is dedicated to empowering innovation through
                 community funding. We believe that great ideas can come from
                 anywhere, and everyone should have the opportunity to bring their
                 vision to life.

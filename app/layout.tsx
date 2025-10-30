@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'CrowdFund Hub - Fund Innovation',
+  title: 'FundHub-Namibia - Fund Innovation',
   description: 'Discover groundbreaking projects and help bring amazing ideas to life through community funding.',
 }
 
